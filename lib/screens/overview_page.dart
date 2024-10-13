@@ -6,7 +6,7 @@ import 'package:intl/intl.dart';
 class OverviewPage extends StatefulWidget {
   final Function(String date, String category) onEntrySelected;
 
-  const OverviewPage({Key? key, required this.onEntrySelected}) : super(key: key);
+  const OverviewPage({super.key, required this.onEntrySelected});
 
   @override
   _OverviewPageState createState() => _OverviewPageState();
@@ -57,12 +57,24 @@ class _OverviewPageState extends State<OverviewPage> with SingleTickerProviderSt
         backgroundColor: Colors.black,
         appBar: AppBar(
           backgroundColor: Colors.black,
-          iconTheme: IconThemeData(color: Colors.white),
+          iconTheme: const IconThemeData(color: Colors.white),
           title: const Text('Overview', style: TextStyle(color: Colors.white),),
           bottom: TabBar(
             controller: _tabController,
             isScrollable: true,
+            indicator: const BoxDecoration(border: Border(bottom: BorderSide(color: Colors.greenAccent, width: 3))),
             indicatorColor: Colors.greenAccent,
+            indicatorSize: TabBarIndicatorSize.tab,
+            labelColor: Colors.white,  // Color of the selected tab's text
+            unselectedLabelColor: Colors.grey,  // Color of the unselected tab's text
+            labelStyle: const TextStyle(
+              fontSize: 21,  // Font size for the selected tab
+              fontWeight: FontWeight.bold,  // Font weight for the selected tab
+            ),
+            unselectedLabelStyle: const TextStyle(
+              fontSize: 16,  // Font size for unselected tabs
+              fontWeight: FontWeight.normal,  // Font weight for unselected tabs
+            ),
             tabs: _categories.map((category) {
               return Tab(
                 text: category,
@@ -144,7 +156,7 @@ class _OverviewPageState extends State<OverviewPage> with SingleTickerProviderSt
           children: [
             ListTile(
               title: Text(
-                content.length > 100 ? content.substring(0, 100) + '...' : content,
+                content.length > 100 ? '${content.substring(0, 100)}...' : content,
                 style: const TextStyle(fontSize: 16, color: Colors.white),
               ),
               onTap: () {
