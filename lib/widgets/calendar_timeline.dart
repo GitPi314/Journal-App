@@ -97,15 +97,13 @@ class _CalendarTimelineState extends State<CalendarTimeline> {
                     margin:
                     const EdgeInsets.symmetric(horizontal: 4, vertical: 10),
                     decoration: BoxDecoration(
-                      color: isSelected
-                          ? Colors.blueAccent
-                          : (isToday ? Colors.greenAccent : Colors.transparent),
+                      color: Colors.transparent, //isSelected ? (isToday ? Colors.greenAccent : Colors.transparent) : Colors.transparent,
                       borderRadius: const BorderRadius.only(
                         bottomLeft: Radius.circular(10),
                         bottomRight: Radius.circular(10),
                       ),
-                      border: isSelected || isToday
-                          ? Border.all(color: Colors.blue, width: 2)
+                      border: isSelected
+                          ? Border.all( color: Colors.greenAccent, width: 2)
                           : null,
                     ),
                     child: Column(
@@ -114,22 +112,14 @@ class _CalendarTimelineState extends State<CalendarTimeline> {
                         Text(
                           _dayFormat.format(date),
                           style: TextStyle(
-                            color: isSelected
-                                ? Colors.white
-                                : isToday
-                                ? Colors.green
-                                : Colors.white,
+                            color: isToday ? Colors.green : Colors.white,
                           ),
                         ),
                         const SizedBox(height: 5),
                         Text(
                           _dateFormat.format(date),
                           style: TextStyle(
-                            color: isSelected
-                                ? Colors.white
-                                : isToday
-                                ? Colors.green
-                                : Colors.white,
+                            color: isToday ? Colors.green : Colors.white,
                             fontSize: isSelected || isToday ? 18 : 16,
                             fontWeight: isSelected || isToday
                                 ? FontWeight.bold

@@ -75,7 +75,7 @@ class _CategoryTabsState extends State<CategoryTabs> {
                         width: isSelected ? 150 : 75,  // Expand when selected
                         padding: const EdgeInsets.symmetric(vertical: 8),
                         decoration: BoxDecoration(
-                          color: isSelected ? tab.color.withOpacity(0.9) : tab.color.withOpacity(0.6),
+                          color: isSelected ? tab.color: tab.color,
                           borderRadius: const BorderRadius.only(
                             topRight: Radius.circular(20),
                             topLeft: Radius.circular(20),
