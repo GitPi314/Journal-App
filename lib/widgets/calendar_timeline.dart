@@ -4,8 +4,13 @@ import '/screens/overview_page.dart'; // Import the OverviewPage here
 
 class CalendarTimeline extends StatefulWidget {
   final Function(DateTime) onDateSelected;
+  final Function(String date, String category) onOverviewEntrySelected;
 
-  const CalendarTimeline({super.key, required this.onDateSelected});
+  const CalendarTimeline({
+    Key? key,
+    required this.onDateSelected,
+    required this.onOverviewEntrySelected,
+  }) : super(key: key);
 
   @override
   _CalendarTimelineState createState() => _CalendarTimelineState();
@@ -33,7 +38,9 @@ class _CalendarTimelineState extends State<CalendarTimeline> {
   }
 
   bool _isSameDate(DateTime date1, DateTime date2) {
-    return date1.year == date2.year && date1.month == date2.month && date1.day == date2.day;
+    return date1.year == date2.year &&
+        date1.month == date2.month &&
+        date1.day == date2.day;
   }
 
   void _centerCurrentDate() {
@@ -41,7 +48,8 @@ class _CalendarTimelineState extends State<CalendarTimeline> {
     double screenWidth = MediaQuery.of(context).size.width;
     double itemWidth = 60.0;
 
-    double targetScrollOffset = (currentDateIndex * itemWidth) - (screenWidth / 2) + (itemWidth / 2);
+    double targetScrollOffset =
+        (currentDateIndex * itemWidth) - (screenWidth / 2) + (itemWidth / 2);
 
     _scrollController.animateTo(
       targetScrollOffset,
@@ -55,7 +63,8 @@ class _CalendarTimelineState extends State<CalendarTimeline> {
     int currentWeekday = now.weekday;
     DateTime monday = now.subtract(Duration(days: currentWeekday - 1));
 
-    return List.generate(7, (index) => monday.add(Duration(days: index)));
+    return List.generate(
+        7, (index) => monday.add(Duration(days: index))); // Monday to Sunday
   }
 
   @override
@@ -85,14 +94,16 @@ class _CalendarTimelineState extends State<CalendarTimeline> {
                   },
                   child: Container(
                     width: 50,
-                    margin: const EdgeInsets.symmetric(horizontal: 4, vertical: 10),
+                    margin:
+                    const EdgeInsets.symmetric(horizontal: 4, vertical: 10),
                     decoration: BoxDecoration(
                       color: isSelected
                           ? Colors.blueAccent
                           : (isToday ? Colors.greenAccent : Colors.transparent),
                       borderRadius: const BorderRadius.only(
-                          bottomLeft: Radius.circular(10),
-                          bottomRight: Radius.circular(10)),
+                        bottomLeft: Radius.circular(10),
+                        bottomRight: Radius.circular(10),
+                      ),
                       border: isSelected || isToday
                           ? Border.all(color: Colors.blue, width: 2)
                           : null,
@@ -137,7 +148,11 @@ class _CalendarTimelineState extends State<CalendarTimeline> {
             icon: const Icon(Icons.list_alt, color: Colors.white),
             onPressed: () {
               Navigator.of(context).push(
-                MaterialPageRoute(builder: (context) => const OverviewPage()),
+                MaterialPageRoute(
+                  builder: (context) => OverviewPage(
+                    onEntrySelected: widget.onOverviewEntrySelected,
+                  ),
+                ),
               );
             },
           ),

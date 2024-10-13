@@ -209,6 +209,19 @@ class _JournalAppState extends State<JournalApp> {
     );
   }
 
+  void _onOverviewEntrySelected(String date, String category) {
+    setState(() {
+      _selectedDate = DateTime.parse(date);
+      _selectedTab = tabs.firstWhere((tab) => tab.name == category);
+      for (var tab in tabs) {
+        tab.isSelected = tab.name == category;
+      }
+    });
+
+    // Optionally, you might want to navigate back to the main screen or update the UI
+  }
+
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -217,6 +230,7 @@ class _JournalAppState extends State<JournalApp> {
         children: [
           CalendarTimeline(
             onDateSelected: _onDateSelected,
+            onOverviewEntrySelected: _onOverviewEntrySelected,
           ),
           // Remove extra vertical spacing if needed
           const SizedBox(height: 20,),
