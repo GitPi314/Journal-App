@@ -95,7 +95,7 @@ class _CategorySettingsScreenState extends State<CategorySettingsScreen> {
               padding: const EdgeInsets.symmetric(vertical: 8.0),
               child: Center(
                 child: ElevatedButton.icon(
-                  style: ElevatedButton.styleFrom(backgroundColor: Colors.grey[700]),
+                  style: ElevatedButton.styleFrom(backgroundColor: Colors.grey[800]),
                   onPressed: _addQuestion,
                   icon: Icon(Icons.add, color: widget.categoryTab.color),
                   label: Text('Add Question', style: TextStyle(color: widget.categoryTab.color),),
@@ -109,7 +109,7 @@ class _CategorySettingsScreenState extends State<CategorySettingsScreen> {
               onPressed: () => _removeQuestion(index),
             ),
             title: TextField(
-              style: TextStyle(color: Colors.white),
+              style: const TextStyle(color: Colors.white),
               keyboardType: TextInputType.multiline,
               minLines: 1,
               maxLines: null,
@@ -117,7 +117,7 @@ class _CategorySettingsScreenState extends State<CategorySettingsScreen> {
               controller: _controllers[index],
               decoration: InputDecoration(
                 border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
-                focusedBorder: OutlineInputBorder(borderSide: BorderSide(color: Colors.white, width: 2), borderRadius: BorderRadius.circular(10)),
+                focusedBorder: OutlineInputBorder(borderSide: const BorderSide(color: Colors.white, width: 2), borderRadius: BorderRadius.circular(10)),
                 hintText: 'Question ${index + 1}',
                 labelStyle: TextStyle(color: Colors.grey[300]),
               ),

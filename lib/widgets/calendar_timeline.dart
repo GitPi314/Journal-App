@@ -7,10 +7,10 @@ class CalendarTimeline extends StatefulWidget {
   final Function(String date, String category) onOverviewEntrySelected;
 
   const CalendarTimeline({
-    Key? key,
+    super.key,
     required this.onDateSelected,
     required this.onOverviewEntrySelected,
-  }) : super(key: key);
+  });
 
   @override
   _CalendarTimelineState createState() => _CalendarTimelineState();
@@ -135,7 +135,7 @@ class _CalendarTimelineState extends State<CalendarTimeline> {
           ),
           // Add the overview icon button to navigate to the overview page
           IconButton(
-            icon: const Icon(Icons.list_alt, color: Colors.white),
+            icon: const Icon(Icons.menu_book_outlined, color: Colors.white),
             onPressed: () {
               Navigator.of(context).push(
                 MaterialPageRoute(

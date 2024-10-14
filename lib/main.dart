@@ -19,6 +19,7 @@ void main() async {
   await Hive.openBox('journal_entries');
   await Hive.openBox('selection_tracker');
   await Hive.openBox('questions');
+  await Hive.openBox('marked_days');
   runApp(const MyApp());
 }
 
@@ -174,7 +175,7 @@ class _JournalAppState extends State<JournalApp> {
     String content = _storageService.getJournalEntry(key);
 
     // If the content is null or empty, return an empty string
-    if (content == null || content.isEmpty) {
+    if (content.isEmpty) {
       return '';  // Return a default empty value to avoid parsing issues
     }
 
@@ -192,8 +193,6 @@ class _JournalAppState extends State<JournalApp> {
 
 
   void _addNewTab() {
-    String tabName = '';
-    Color tabColor = Colors.green;
 
     showDialog(
       context: context,
@@ -233,7 +232,7 @@ class _JournalAppState extends State<JournalApp> {
             onOverviewEntrySelected: _onOverviewEntrySelected,
           ),
           // Remove extra vertical spacing if needed
-          const SizedBox(height: 20,),
+          const SizedBox(height: 25,),
           CategoryTabs(
             tabs: tabs,
             onTabSelected: _onTabSelected,

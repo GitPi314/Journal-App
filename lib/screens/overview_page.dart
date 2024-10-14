@@ -2,6 +2,9 @@
 import 'package:flutter/material.dart';
 import 'package:hive/hive.dart';
 import 'package:intl/intl.dart';
+import 'package:flutter_quill/flutter_quill.dart' as quill;
+import 'dart:convert';
+
 
 class OverviewPage extends StatefulWidget {
   final Function(String date, String category) onEntrySelected;
@@ -18,12 +21,51 @@ class _OverviewPageState extends State<OverviewPage> with SingleTickerProviderSt
   late TabController _tabController;
   Map<String, Map<String, String>> _entriesByCategory = {};
   final List<String> _categories = ['Journal', 'Gedanken', 'Ideen', 'Erkenntnisse', 'Gefühle'];
+  Map<String, Set<String>> _markedDaysByCategory = {};
+  late Box _markedDaysBox;
+  bool _showOnlyMarked = false;
 
   @override
   void initState() {
     super.initState();
     _loadEntries();
     _tabController = TabController(length: _categories.length, vsync: this);
+    _markedDaysBox = Hive.box('marked_days');
+    _loadMarkedDays();
+  }
+
+  void _loadMarkedDays() {
+    _markedDaysByCategory = {};
+    for (String category in _categories) {
+      List<dynamic>? markedDates = _markedDaysBox.get(category);
+      if (markedDates != null) {
+        _markedDaysByCategory[category] = markedDates.cast<String>().toSet();
+      } else {
+        _markedDaysByCategory[category] = {};
+      }
+    }
+  }
+
+  bool _isDayMarked(String category, String date) {
+    if (!_markedDaysByCategory.containsKey(category)) {
+      _markedDaysByCategory[category] = {};
+    }
+    return _markedDaysByCategory[category]!.contains(date);
+  }
+
+  void _toggleDayMarked(String category, String date) {
+    setState(() {
+      if (!_markedDaysByCategory.containsKey(category)) {
+        _markedDaysByCategory[category] = {};
+      }
+      if (_markedDaysByCategory[category]!.contains(date)) {
+        _markedDaysByCategory[category]!.remove(date);
+      } else {
+        _markedDaysByCategory[category]!.add(date);
+      }
+      // Save the updated marked days to Hive
+      _markedDaysBox.put(category, _markedDaysByCategory[category]!.toList());
+    });
   }
 
   void _loadEntries() {
@@ -107,29 +149,72 @@ class _OverviewPageState extends State<OverviewPage> with SingleTickerProviderSt
     List<String> sortedDates = entries != null ? entries.keys.toList() : [];
     sortedDates.sort((a, b) => b.compareTo(a)); // Sort dates descending
 
-    return ListView.builder(
-      itemCount: sortedDates.length,
-      itemBuilder: (context, index) {
-        String date = sortedDates[index];
-        // Indicate whether an entry exists on that day
-        bool hasEntry = entries![date] != null && entries[date]!.isNotEmpty;
+    return Column(
+      children: [
+        Padding(
+          padding: const EdgeInsets.all(8.0),
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              const Text('Favoriten: ', style: TextStyle(fontSize: 16, color: Colors.grey),),
 
-        return ListTile(
-          title: Text(
-            _dateFormat.format(DateTime.parse(date)),
-            style: const TextStyle(fontWeight: FontWeight.bold, color: Colors.white),
+              Switch(
+                activeColor: Colors.greenAccent,
+                activeTrackColor: Colors.green,
+                value: _showOnlyMarked,
+                onChanged: (value) {
+                  setState(() {
+                    _showOnlyMarked = value;
+                  });
+                },
+              ),
+            ],
           ),
-          trailing: hasEntry
-              ? const Icon(Icons.circle, color: Colors.green, size: 12)
-              : const Icon(Icons.circle_outlined, color: Colors.grey, size: 12),
-          onTap: hasEntry
-              ? () {
-            // Navigate to note view for that date and category
-            _navigateToNoteView(date, category);
-          }
-              : null,
-        );
-      },
+        ),
+        Expanded(
+          child: ListView.builder(
+            itemCount: sortedDates.length,
+            itemBuilder: (context, index) {
+              String date = sortedDates[index];
+              if (_showOnlyMarked && !_isDayMarked(category, date)) {
+                return Container(); // Skip unmarked days when filter is on
+              }
+              bool hasEntry = entries![date] != null && entries[date]!.isNotEmpty;
+              bool isMarked = _isDayMarked(category, date);
+
+              return ListTile(
+                title: Text(
+                  _dateFormat.format(DateTime.parse(date)),
+                  style: const TextStyle(fontWeight: FontWeight.bold, color: Colors.white),
+                ),
+                trailing: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    IconButton(
+                      icon: Icon(
+                        isMarked ? Icons.bookmark : Icons.bookmark_border,
+                        color: isMarked ? Colors.blue : Colors.grey,
+                      ),
+                      onPressed: () {
+                        _toggleDayMarked(category, date);
+                      },
+                    ),
+                    hasEntry
+                        ? const Icon(Icons.circle, color: Colors.green, size: 12)
+                        : const Icon(Icons.circle_outlined, color: Colors.grey, size: 12),
+                  ],
+                ),
+                onTap: hasEntry
+                    ? () {
+                  // Navigate to note view for that date and category
+                  _navigateToNoteView(date, category);
+                }
+                    : null,
+              );
+            },
+          ),
+        ),
+      ],
     );
   }
 
@@ -148,23 +233,28 @@ class _OverviewPageState extends State<OverviewPage> with SingleTickerProviderSt
         String date = sortedDates[index];
         String content = entries[date]!;
 
-        return ExpansionTile(
+        String plainText = '';
+        try {
+          quill.Document doc = quill.Document.fromJson(jsonDecode(content));
+          plainText = doc.toPlainText().trim();
+        } catch (e) {
+          // Falls ein Fehler auftritt, verwenden wir den Originalinhalt
+          plainText = content;
+        }
+
+        return ListTile(
           title: Text(
             _dateFormat.format(DateTime.parse(date)),
             style: const TextStyle(fontWeight: FontWeight.bold, color: Colors.white),
           ),
-          children: [
-            ListTile(
-              title: Text(
-                content.length > 100 ? '${content.substring(0, 100)}...' : content,
-                style: const TextStyle(fontSize: 16, color: Colors.white),
-              ),
-              onTap: () {
-                // Navigate to note view for that date and category
-                _navigateToNoteView(date, category);
-              },
-            ),
-          ],
+          subtitle: Text(
+            plainText.length > 100 ? '${plainText.substring(0, 100)}...' : plainText,
+            style: const TextStyle(fontSize: 16, color: Colors.grey),
+          ),
+          onTap: () {
+            // Navigate to note view for that date and category
+            _navigateToNoteView(date, category);
+          },
         );
       },
     );
