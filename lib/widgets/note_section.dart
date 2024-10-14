@@ -2,17 +2,22 @@ import 'package:flutter/material.dart';
 import 'package:flutter_quill/flutter_quill.dart' as quill;
 import 'dart:convert';
 import 'dart:async';  // Import for Timer
+//import '../services/storage_service.dart';
 
 class NoteSection extends StatefulWidget {
   final Color backgroundColor;
   final Function(String) onContentChanged;
   final String initialContent;
+  final String initialDescription;
+  final Function(String) onDescriptionChanged;
 
   const NoteSection({
     super.key,
     required this.backgroundColor,
     required this.onContentChanged,
     required this.initialContent,
+    required this.initialDescription,
+    required this.onDescriptionChanged,
   });
 
   @override
@@ -23,12 +28,15 @@ class _NoteSectionState extends State<NoteSection> {
   late quill.QuillController _controller;
   Timer? _autoSaveTimer;  // Declare a Timer for auto-saving
   String _currentContent = '';
+  late TextEditingController _descriptionController;
 
   @override
   void initState() {
     super.initState();
     _initializeController();
+    _descriptionController = TextEditingController(text: widget.initialDescription);
     _controller.addListener(_onContentChanged);
+    _descriptionController.addListener(_onDescriptionChanged);
     _startAutoSaveTimer();  // Start the timer when the widget is initialized
   }
 
@@ -43,6 +51,10 @@ class _NoteSectionState extends State<NoteSection> {
     } else {
       _controller = quill.QuillController.basic();
     }
+  }
+
+  void _onDescriptionChanged() {
+    widget.onDescriptionChanged(_descriptionController.text);
   }
 
   // Function to handle content changes and save immediately
@@ -70,11 +82,15 @@ class _NoteSectionState extends State<NoteSection> {
       _controller.addListener(_onContentChanged);
       setState(() {});
     }
+    if (widget.initialDescription != oldWidget.initialDescription) {
+      _descriptionController.text = widget.initialDescription;
+    }
   }
 
   @override
   void dispose() {
     _controller.dispose();
+    _descriptionController.dispose();
     _autoSaveTimer?.cancel();  // Cancel the auto-save timer when the widget is disposed
     super.dispose();
   }
@@ -160,7 +176,20 @@ class _NoteSectionState extends State<NoteSection> {
                           )
                       )
                   )
-              )
+              ),
+          ),
+          Padding(
+            padding: const EdgeInsets.all(8.0),
+            child: TextField(
+              cursorColor: Colors.black,
+              controller: _descriptionController,
+              decoration: const InputDecoration(
+                labelText: 'Short Description',
+                focusColor: Colors.blue,
+                labelStyle: TextStyle(color: Colors.grey),
+                focusedBorder: UnderlineInputBorder(borderSide: BorderSide(color: Colors.grey, width: 3)),
+              ),
+            ),
           ),
           Expanded(
             child: Container(

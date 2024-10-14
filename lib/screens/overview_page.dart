@@ -4,6 +4,7 @@ import 'package:hive/hive.dart';
 import 'package:intl/intl.dart';
 import 'package:flutter_quill/flutter_quill.dart' as quill;
 import 'dart:convert';
+import '../services/storage_service.dart';
 
 
 class OverviewPage extends StatefulWidget {
@@ -24,6 +25,7 @@ class _OverviewPageState extends State<OverviewPage> with SingleTickerProviderSt
   Map<String, Set<String>> _markedDaysByCategory = {};
   late Box _markedDaysBox;
   bool _showOnlyMarked = false;
+  final StorageService _storageService = StorageService();
 
   @override
   void initState() {
@@ -182,11 +184,15 @@ class _OverviewPageState extends State<OverviewPage> with SingleTickerProviderSt
               bool hasEntry = entries![date] != null && entries[date]!.isNotEmpty;
               bool isMarked = _isDayMarked(category, date);
 
+              String key = '${date}_$category';
+              String description = _storageService.getDescription(key);
+
               return ListTile(
                 title: Text(
                   _dateFormat.format(DateTime.parse(date)),
                   style: const TextStyle(fontWeight: FontWeight.bold, color: Colors.white),
                 ),
+                subtitle: description.isNotEmpty ? Text(description, style: const TextStyle(color: Colors.grey),) : null,
                 trailing: Row(
                   mainAxisSize: MainAxisSize.min,
                   children: [

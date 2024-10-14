@@ -20,6 +20,7 @@ void main() async {
   await Hive.openBox('selection_tracker');
   await Hive.openBox('questions');
   await Hive.openBox('marked_days');
+  await Hive.openBox('descriptions');
   runApp(const MyApp());
 }
 
@@ -170,6 +171,16 @@ class _JournalAppState extends State<JournalApp> {
     _storageService.saveJournalEntry(key, content);
   }
 
+  void _onDescriptionChanged(String description) {
+    String key = '${_selectedDate.toString().split(' ')[0]}_${_selectedTab.name}';
+    _storageService.saveDescription(key, description);
+  }
+
+  Future<String> _getInitialDescription() async {
+    String key = '${_selectedDate.toString().split(' ')[0]}_${_selectedTab.name}';
+    return Future.value(_storageService.getDescription(key));
+  }
+
   Future<String> _getInitialContent() async {
     String key = '${_selectedDate.toString().split(' ')[0]}_${_selectedTab.name}';
     String content = _storageService.getJournalEntry(key);
@@ -240,18 +251,25 @@ class _JournalAppState extends State<JournalApp> {
             onEditTab: _editCategory,
           ),
           Expanded(
-            child: FutureBuilder<String>(
-              future: _getInitialContent(),
+            child: FutureBuilder<List<String>>(//Fehler
+              future: Future.wait([
+                _getInitialContent(),
+                _getInitialDescription(),
+              ]),
               builder: (context, snapshot) {
                 if (snapshot.connectionState == ConnectionState.waiting) {
                   return const Center(
                     child: CircularProgressIndicator(),
                   );
                 } else {
+                  String initialContent = snapshot.data?[0] ?? '';
+                  String initialDescription = snapshot.data?[1] ?? '';
                   return NoteSection(
                     backgroundColor: _selectedTab.color,
                     onContentChanged: _onContentChanged,
-                    initialContent: snapshot.data ?? '',
+                    initialContent: initialContent,
+                    initialDescription: initialDescription,
+                    onDescriptionChanged: _onDescriptionChanged,
                   );
                 }
               },
