@@ -10,6 +10,7 @@ class NoteSection extends StatefulWidget {
   final String initialContent;
   final String initialDescription;
   final Function(String) onDescriptionChanged;
+  final String categoryName;
 
   const NoteSection({
     super.key,
@@ -18,6 +19,7 @@ class NoteSection extends StatefulWidget {
     required this.initialContent,
     required this.initialDescription,
     required this.onDescriptionChanged,
+    required this.categoryName,
   });
 
   @override
@@ -101,7 +103,8 @@ class _NoteSectionState extends State<NoteSection> {
       color: Color.lerp(widget.backgroundColor, Colors.white, 0.5),
       child: Column(
         children: [
-          quill.QuillToolbar.simple(
+          if (widget.categoryName == 'Journal' || widget.categoryName == 'Gefühle')
+            quill.QuillToolbar.simple(
               controller: _controller,  // Use the simple toolbar
               configurations: quill.QuillSimpleToolbarConfigurations(
                   multiRowsDisplay: false,
@@ -177,8 +180,9 @@ class _NoteSectionState extends State<NoteSection> {
                       )
                   )
               ),
-          ),
-          Padding(
+            ),
+          if (widget.categoryName == 'Journal' || widget.categoryName == 'Gefühle')
+            Padding(
             padding: const EdgeInsets.all(8.0),
             child: TextField(
               cursorColor: Colors.black,

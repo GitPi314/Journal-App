@@ -1,18 +1,34 @@
-// services/selection_tracker_service.dart
 import 'package:hive/hive.dart';
 
 class SelectionTrackerService {
-  final Box _box = Hive.box('selection_tracker');
+  late Box _box;
 
-  Future<void> updateLastSelectedDate(String categoryName, DateTime date) async {
+  // Initialize the Hive box asynchronously
+  Future<void> init() async {
+    _box = await Hive.openBox('selection_tracker');
+  }
+
+  // Update the last selected date for a specific category
+  Future<void> updateLastOpenedDate(String categoryName, DateTime date) async {
     await _box.put(categoryName, date.toIso8601String());
   }
 
-  DateTime? getLastSelectedDate(String categoryName) {
+  // Retrieve the last selected date for a specific category
+  DateTime? getLastOpenedDate(String categoryName) {
     final dateStr = _box.get(categoryName);
     if (dateStr != null) {
-      return DateTime.parse(dateStr);
+      try {
+        return DateTime.parse(dateStr);
+      } catch (e) {
+        // Handle any parsing errors
+        return null;
+      }
     }
     return null;
+  }
+
+  // Clear the last selected date for a specific category (if needed)
+  Future<void> clearLastSelectedDate(String categoryName) async {
+    await _box.delete(categoryName);
   }
 }

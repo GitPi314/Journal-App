@@ -184,8 +184,11 @@ class _OverviewPageState extends State<OverviewPage> with SingleTickerProviderSt
               bool hasEntry = entries![date] != null && entries[date]!.isNotEmpty;
               bool isMarked = _isDayMarked(category, date);
 
-              String key = '${date}_$category';
-              String description = _storageService.getDescription(key);
+              String description = '';
+              if (category == 'Journal' || category == 'Gefühle') {
+                String key = '${date}_${category}';
+                description = _storageService.getDescription(key);
+              }
 
               return ListTile(
                 title: Text(

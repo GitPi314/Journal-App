@@ -138,21 +138,35 @@ class _JournalAppState extends State<JournalApp> {
       _selectedTab = tab;
     });
 
+    // Fragen aus Hive laden
+    final questionsBox = Hive.box('questions');
+    List<String>? loadedQuestions = questionsBox.get(tab.name);
+
+    setState(() {
+      if (loadedQuestions != null) {
+        _selectedTab.questions = loadedQuestions;
+      } else {
+        _selectedTab.questions = [];
+      }
+    });
+
+    // Restlicher Code bleibt unverändert...
+
     // Check if it's the first selection today
-    final lastSelectedDate = _selectionTracker.getLastSelectedDate(tab.name);
+    final lastOpenedDate = _selectionTracker.getLastOpenedDate(tab.name);
     final today = DateTime.now();
 
-    final isFirstSelectionToday = lastSelectedDate == null ||
-        lastSelectedDate.year != today.year ||
-        lastSelectedDate.month != today.month ||
-        lastSelectedDate.day != today.day;
+    final isFirstSelectionToday = lastOpenedDate == null ||
+        lastOpenedDate.year != today.year ||
+        lastOpenedDate.month != today.month ||
+        lastOpenedDate.day != today.day;
 
-    if (isFirstSelectionToday && tab.questions.isNotEmpty) {
+    if (isFirstSelectionToday && _selectedTab.questions.isNotEmpty) {
       // Show the questions screen
       await Navigator.of(context).push(
         MaterialPageRoute(
           builder: (context) => QuestionsScreen(
-            categoryTab: tab,
+            categoryTab: _selectedTab,
             onConfirm: (answers) {
               // Process the answers
               _insertQuestionsAndAnswersIntoNoteSection(answers);
@@ -160,11 +174,10 @@ class _JournalAppState extends State<JournalApp> {
           ),
         ),
       );
+      _selectionTracker.updateLastOpenedDate(tab.name, today);
     }
-
-    // Update the last selected date
-    _selectionTracker.updateLastSelectedDate(tab.name, today);
   }
+
 
   void _onContentChanged(String content) {
     String key = '${_selectedDate.toString().split(' ')[0]}_${_selectedTab.name}';
@@ -172,13 +185,19 @@ class _JournalAppState extends State<JournalApp> {
   }
 
   void _onDescriptionChanged(String description) {
-    String key = '${_selectedDate.toString().split(' ')[0]}_${_selectedTab.name}';
-    _storageService.saveDescription(key, description);
+    if (_selectedTab.name == 'Journal' || _selectedTab.name == 'Gefühle') {
+      String key = '${_selectedDate.toString().split(' ')[0]}_${_selectedTab.name}';
+      _storageService.saveDescription(key, description);
+    }
   }
 
   Future<String> _getInitialDescription() async {
-    String key = '${_selectedDate.toString().split(' ')[0]}_${_selectedTab.name}';
-    return Future.value(_storageService.getDescription(key));
+    if (_selectedTab.name == 'Journal' || _selectedTab.name == 'Gefühle') {
+      String key = '${_selectedDate.toString().split(' ')[0]}_${_selectedTab.name}';
+      return Future.value(_storageService.getDescription(key));
+    } else {
+      return Future.value('');
+    }
   }
 
   Future<String> _getInitialContent() async {
@@ -232,6 +251,40 @@ class _JournalAppState extends State<JournalApp> {
   }
 
 
+  void _handleFabPressed() {
+    if (_selectedTab.questions.isNotEmpty) {
+      // Wenn Fragen vorhanden sind, öffne den QuestionsScreen
+      Navigator.of(context).push(
+        MaterialPageRoute(
+          builder: (context) => QuestionsScreen(
+            categoryTab: _selectedTab,
+            onConfirm: (answers) {
+              _insertQuestionsAndAnswersIntoNoteSection(answers);
+            },
+          ),
+        ),
+      );
+    } else {
+      // Wenn keine Fragen vorhanden sind, navigiere zum CategorySettingsScreen
+      Navigator.of(context).push(
+        MaterialPageRoute(
+          builder: (context) => CategorySettingsScreen(
+            categoryTab: _selectedTab,
+            onSave: (updatedTab) {
+              setState(() {
+                final index = tabs.indexOf(_selectedTab);
+                tabs[index] = updatedTab;
+                _selectedTab = updatedTab;
+              });
+            },
+          ),
+        ),
+      );
+    }
+  }
+
+
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -270,13 +323,36 @@ class _JournalAppState extends State<JournalApp> {
                     initialContent: initialContent,
                     initialDescription: initialDescription,
                     onDescriptionChanged: _onDescriptionChanged,
+                    categoryName: _selectedTab.name,
                   );
                 }
               },
             ),
           ),
+          /*
+          if (_selectedTab.questions.isNotEmpty)
+            Padding(
+              padding: const EdgeInsets.all(16.0),
+              child: ElevatedButton.icon(
+                onPressed: _manualTriggerQuestionsScreen,
+                icon: const Icon(Icons.question_answer),
+                label: const Text('Answer Questions'),
+              ),
+            ),
+
+           */
         ],
+
       ),
+
+      floatingActionButton:  FloatingActionButton(
+        onPressed: _handleFabPressed,
+        backgroundColor: _selectedTab.color,
+        child: const Icon(Icons.question_answer),
+      )
+
+
+
     );
   }
 }
