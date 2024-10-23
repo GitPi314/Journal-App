@@ -23,4 +23,14 @@ class StorageService {
     var box = Hive.box(descriptionsBoxName);
     return box.get(key, defaultValue: '');
   }
+
+  void saveAudioNotes(String key, List<String> audioNotesJson) {
+    var box = Hive.box('audio_notes');
+    box.put(key, audioNotesJson);
+  }
+
+  List<String> getAudioNotes(String key) {
+    var box = Hive.box('audio_notes');
+    return box.get(key, defaultValue: []).cast<String>();
+  }
 }

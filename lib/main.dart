@@ -1,3 +1,5 @@
+import 'dart:io';
+
 import 'package:flutter/material.dart';
 import 'package:hive_flutter/hive_flutter.dart';
 import 'dart:convert';
@@ -5,6 +7,7 @@ import 'package:flutter_quill/flutter_quill.dart' as quill;
 import 'package:dart_quill_delta/dart_quill_delta.dart';
 
 import 'models/category_tab.dart';
+import 'models/audio_note.dart';
 import 'widgets/calendar_timeline.dart';
 import 'widgets/category_tabs.dart';
 import 'widgets/note_section.dart';
@@ -12,6 +15,7 @@ import 'services/storage_service.dart';
 import 'screens/category_settings_screen.dart';
 import 'services/selection_tracker_service.dart';
 import 'screens/questions_screen.dart';
+import 'screens/audio_recorder_screen.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -21,6 +25,7 @@ void main() async {
   await Hive.openBox('questions');
   await Hive.openBox('marked_days');
   await Hive.openBox('descriptions');
+  await Hive.openBox('audio_notes');
   runApp(const MyApp());
 }
 
@@ -59,11 +64,53 @@ class _JournalAppState extends State<JournalApp> {
   late CategoryTab _selectedTab;
   final StorageService _storageService = StorageService();
   final SelectionTrackerService _selectionTracker = SelectionTrackerService();
+  List<AudioNote> _audioNotes = [];
 
   @override
   void initState() {
     super.initState();
     _selectedTab = tabs.firstWhere((tab) => tab.isSelected);
+    _loadAudioNotes();
+  }
+
+  void _saveAudioRecording(AudioNote audioNote) {
+    setState(() {
+      _audioNotes.add(audioNote);
+    });
+    _saveAudioNotes();
+  }
+
+  void _saveAudioNotes() {
+    String key = '${_selectedDate.toString().split(' ')[0]}_${_selectedTab.name}_audios';
+    List<String> audioNotesJson = _audioNotes.map((note) => jsonEncode(note.toJson())).toList();
+    _storageService.saveAudioNotes(key, audioNotesJson);
+  }
+
+  Future<void> _loadAudioNotes() async {
+    String key = '${_selectedDate.toString().split(' ')[0]}_${_selectedTab.name}_audios';
+    List<String> audioNotesJson = await _storageService.getAudioNotes(key);
+    setState(() {
+      _audioNotes = audioNotesJson.map((jsonStr) => AudioNote.fromJson(jsonDecode(jsonStr))).toList();
+    });
+  }
+
+  void _deleteAudio(AudioNote audioNote) {
+    setState(() {
+      _audioNotes.remove(audioNote);
+    });
+    _saveAudioNotes();
+    // Optionally delete the audio file from storage
+    File(audioNote.filePath).delete();
+  }
+
+  void _startAudioRecording() {
+    Navigator.of(context).push(
+      MaterialPageRoute(
+        builder: (context) => AudioRecorderScreen(
+          onSave: _saveAudioRecording,
+        ),
+      ),
+    );
   }
 
   void _editCategory(CategoryTab tab) {
@@ -86,6 +133,7 @@ class _JournalAppState extends State<JournalApp> {
     setState(() {
       _selectedDate = date;
     });
+    _loadAudioNotes();
   }
 
   void _insertQuestionsAndAnswersIntoNoteSection(Map<String, String> answers) {
@@ -137,6 +185,7 @@ class _JournalAppState extends State<JournalApp> {
       tab.isSelected = true;
       _selectedTab = tab;
     });
+    _loadAudioNotes();
 
     // Fragen aus Hive laden
     final questionsBox = Hive.box('questions');
@@ -324,6 +373,9 @@ class _JournalAppState extends State<JournalApp> {
                     initialDescription: initialDescription,
                     onDescriptionChanged: _onDescriptionChanged,
                     categoryName: _selectedTab.name,
+                    audioNotes: _audioNotes,
+                    onDeleteAudio: _deleteAudio,
+                    onAddAudio: _saveAudioRecording,
                   );
                 }
               },
@@ -345,14 +397,24 @@ class _JournalAppState extends State<JournalApp> {
 
       ),
 
-      floatingActionButton:  FloatingActionButton(
-        onPressed: _handleFabPressed,
-        backgroundColor: _selectedTab.color,
-        child: const Icon(Icons.question_answer),
-      )
-
-
-
+      floatingActionButton: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          // Existing FAB for questions
+          FloatingActionButton(
+            onPressed: _handleFabPressed,
+            backgroundColor: _selectedTab.color,
+            child: const Icon(Icons.question_answer),
+          ),
+          const SizedBox(height: 10),
+          // New FAB for audio recording
+          FloatingActionButton(
+            onPressed: _startAudioRecording,
+            backgroundColor: _selectedTab.color,
+            child: const Icon(Icons.mic),
+          ),
+        ],
+      ),
     );
   }
 }
