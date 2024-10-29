@@ -1,21 +1,35 @@
 import 'package:hive/hive.dart';
 
 class SelectionTrackerService {
-  late Box _box;
+  // Singleton-Instanz
+  static final SelectionTrackerService _instance = SelectionTrackerService._internal();
 
-  // Initialize the Hive box asynchronously
-  Future<void> init() async {
-    _box = await Hive.openBox('selection_tracker');
+  factory SelectionTrackerService() {
+    return _instance;
+  }
+
+  SelectionTrackerService._internal();
+
+  Box? _box;
+
+  // Private Methode, um sicherzustellen, dass _box initialisiert ist
+  Future<Box> _getBox() async {
+    if (_box == null || !_box!.isOpen) {
+      _box = await Hive.openBox('selection_tracker');
+    }
+    return _box!;
   }
 
   // Update the last selected date for a specific category
   Future<void> updateLastOpenedDate(String categoryName, DateTime date) async {
-    await _box.put(categoryName, date.toIso8601String());
+    final box = await _getBox();
+    await box.put(categoryName, date.toIso8601String());
   }
 
   // Retrieve the last selected date for a specific category
-  DateTime? getLastOpenedDate(String categoryName) {
-    final dateStr = _box.get(categoryName);
+  Future<DateTime?> getLastOpenedDate(String categoryName) async {
+    final box = await _getBox();
+    final dateStr = box.get(categoryName);
     if (dateStr != null) {
       try {
         return DateTime.parse(dateStr);
@@ -29,6 +43,7 @@ class SelectionTrackerService {
 
   // Clear the last selected date for a specific category (if needed)
   Future<void> clearLastSelectedDate(String categoryName) async {
-    await _box.delete(categoryName);
+    final box = await _getBox();
+    await box.delete(categoryName);
   }
 }

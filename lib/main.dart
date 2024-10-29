@@ -1,5 +1,3 @@
-import 'dart:io';
-
 import 'package:flutter/material.dart';
 import 'package:hive_flutter/hive_flutter.dart';
 import 'dart:convert';
@@ -7,7 +5,6 @@ import 'package:flutter_quill/flutter_quill.dart' as quill;
 import 'package:dart_quill_delta/dart_quill_delta.dart';
 
 import 'models/category_tab.dart';
-import 'models/audio_note.dart';
 import 'widgets/calendar_timeline.dart';
 import 'widgets/category_tabs.dart';
 import 'widgets/note_section.dart';
@@ -15,7 +12,6 @@ import 'services/storage_service.dart';
 import 'screens/category_settings_screen.dart';
 import 'services/selection_tracker_service.dart';
 import 'screens/questions_screen.dart';
-import 'screens/audio_recorder_screen.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -64,53 +60,38 @@ class _JournalAppState extends State<JournalApp> {
   late CategoryTab _selectedTab;
   final StorageService _storageService = StorageService();
   final SelectionTrackerService _selectionTracker = SelectionTrackerService();
-  List<AudioNote> _audioNotes = [];
+  final GlobalKey<NoteSectionState> _noteSectionKey = GlobalKey<NoteSectionState>();
+  bool _isRecordingInProgress = false;
+  Future<List<String>>? _initialContentFuture;
+  bool _isRecording = false;
+  int _selectedIndex = 0;
 
   @override
   void initState() {
     super.initState();
     _selectedTab = tabs.firstWhere((tab) => tab.isSelected);
-    _loadAudioNotes();
+    _loadInitialContent();
   }
 
-  void _saveAudioRecording(AudioNote audioNote) {
+  void _loadInitialContent() {
     setState(() {
-      _audioNotes.add(audioNote);
-    });
-    _saveAudioNotes();
-  }
-
-  void _saveAudioNotes() {
-    String key = '${_selectedDate.toString().split(' ')[0]}_${_selectedTab.name}_audios';
-    List<String> audioNotesJson = _audioNotes.map((note) => jsonEncode(note.toJson())).toList();
-    _storageService.saveAudioNotes(key, audioNotesJson);
-  }
-
-  Future<void> _loadAudioNotes() async {
-    String key = '${_selectedDate.toString().split(' ')[0]}_${_selectedTab.name}_audios';
-    List<String> audioNotesJson = await _storageService.getAudioNotes(key);
-    setState(() {
-      _audioNotes = audioNotesJson.map((jsonStr) => AudioNote.fromJson(jsonDecode(jsonStr))).toList();
+      _initialContentFuture = Future.wait([
+        _getInitialContent(),
+        _getInitialDescription(),
+      ]);
     });
   }
 
-  void _deleteAudio(AudioNote audioNote) {
+  void _startRecording() {
     setState(() {
-      _audioNotes.remove(audioNote);
+      _isRecording = true;
     });
-    _saveAudioNotes();
-    // Optionally delete the audio file from storage
-    File(audioNote.filePath).delete();
   }
 
-  void _startAudioRecording() {
-    Navigator.of(context).push(
-      MaterialPageRoute(
-        builder: (context) => AudioRecorderScreen(
-          onSave: _saveAudioRecording,
-        ),
-      ),
-    );
+  void _stopRecording() {
+    setState(() {
+      _isRecording = false;
+    });
   }
 
   void _editCategory(CategoryTab tab) {
@@ -133,16 +114,14 @@ class _JournalAppState extends State<JournalApp> {
     setState(() {
       _selectedDate = date;
     });
-    _loadAudioNotes();
+    _loadInitialContent(); // Initialen Inhalt neu laden
   }
 
   void _insertQuestionsAndAnswersIntoNoteSection(Map<String, String> answers) {
     String key = '${_selectedDate.toString().split(' ')[0]}_${_selectedTab.name}';
 
-    // Get existing content
     String existingContentJson = _storageService.getJournalEntry(key);
 
-    // Initialize the document
     quill.Document document;
     if (existingContentJson.isNotEmpty) {
       document = quill.Document.fromJson(jsonDecode(existingContentJson));
@@ -150,31 +129,24 @@ class _JournalAppState extends State<JournalApp> {
       document = quill.Document();
     }
 
-    // Prepare the new content as a Delta
     var deltaList = Delta();
 
     answers.forEach((question, answer) {
       if (question.isNotEmpty) {
-        // Insert question with bold formatting
         deltaList.insert('$question\n', {'bold': true});
       }
 
       if (answer.isNotEmpty) {
-        // Insert answer as normal text
         deltaList.insert('$answer\n\n');
       }
     });
 
-    // Append the new content to the document
     document.compose(deltaList, quill.ChangeSource.local);
 
-
-    // Save the updated content
     String updatedContentJson = jsonEncode(document.toDelta().toJson());
     _storageService.saveJournalEntry(key, updatedContentJson);
 
-    // Optionally refresh the NoteSection after saving
-    setState(() {});
+    _loadInitialContent(); // Inhalt neu laden
   }
 
   void _onTabSelected(CategoryTab tab) async {
@@ -184,10 +156,11 @@ class _JournalAppState extends State<JournalApp> {
       }
       tab.isSelected = true;
       _selectedTab = tab;
+      _selectedIndex = tabs.indexOf(tab);
     });
-    _loadAudioNotes();
 
-    // Fragen aus Hive laden
+    _loadInitialContent(); // Initialen Inhalt neu laden
+
     final questionsBox = Hive.box('questions');
     List<String>? loadedQuestions = questionsBox.get(tab.name);
 
@@ -199,10 +172,7 @@ class _JournalAppState extends State<JournalApp> {
       }
     });
 
-    // Restlicher Code bleibt unverändert...
-
-    // Check if it's the first selection today
-    final lastOpenedDate = _selectionTracker.getLastOpenedDate(tab.name);
+    final DateTime? lastOpenedDate = await _selectionTracker.getLastOpenedDate(tab.name);
     final today = DateTime.now();
 
     final isFirstSelectionToday = lastOpenedDate == null ||
@@ -211,22 +181,19 @@ class _JournalAppState extends State<JournalApp> {
         lastOpenedDate.day != today.day;
 
     if (isFirstSelectionToday && _selectedTab.questions.isNotEmpty) {
-      // Show the questions screen
       await Navigator.of(context).push(
         MaterialPageRoute(
           builder: (context) => QuestionsScreen(
             categoryTab: _selectedTab,
             onConfirm: (answers) {
-              // Process the answers
               _insertQuestionsAndAnswersIntoNoteSection(answers);
             },
           ),
         ),
       );
-      _selectionTracker.updateLastOpenedDate(tab.name, today);
+      await _selectionTracker.updateLastOpenedDate(tab.name, today);
     }
   }
-
 
   void _onContentChanged(String content) {
     String key = '${_selectedDate.toString().split(' ')[0]}_${_selectedTab.name}';
@@ -253,26 +220,20 @@ class _JournalAppState extends State<JournalApp> {
     String key = '${_selectedDate.toString().split(' ')[0]}_${_selectedTab.name}';
     String content = _storageService.getJournalEntry(key);
 
-    // If the content is null or empty, return an empty string
     if (content.isEmpty) {
-      return '';  // Return a default empty value to avoid parsing issues
+      return '';
     }
 
-    // Wrap JSON parsing in a try-catch to handle potential errors
     try {
-      // Try to decode the content assuming it's valid JSON
       jsonDecode(content);
       return content;
     } catch (e) {
       print('Error parsing JSON: $e');
-      // Return an empty string or some default valid content in case of error
       return '';
     }
   }
 
-
   void _addNewTab() {
-
     showDialog(
       context: context,
       builder: (context) {
@@ -295,14 +256,11 @@ class _JournalAppState extends State<JournalApp> {
         tab.isSelected = tab.name == category;
       }
     });
-
-    // Optionally, you might want to navigate back to the main screen or update the UI
+    _loadInitialContent(); // Initialen Inhalt neu laden
   }
-
 
   void _handleFabPressed() {
     if (_selectedTab.questions.isNotEmpty) {
-      // Wenn Fragen vorhanden sind, öffne den QuestionsScreen
       Navigator.of(context).push(
         MaterialPageRoute(
           builder: (context) => QuestionsScreen(
@@ -314,7 +272,6 @@ class _JournalAppState extends State<JournalApp> {
         ),
       );
     } else {
-      // Wenn keine Fragen vorhanden sind, navigiere zum CategorySettingsScreen
       Navigator.of(context).push(
         MaterialPageRoute(
           builder: (context) => CategorySettingsScreen(
@@ -332,88 +289,89 @@ class _JournalAppState extends State<JournalApp> {
     }
   }
 
-
-
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: Colors.black,
-      body: Column(
-        children: [
-          CalendarTimeline(
-            onDateSelected: _onDateSelected,
-            onOverviewEntrySelected: _onOverviewEntrySelected,
-          ),
-          // Remove extra vertical spacing if needed
-          const SizedBox(height: 25,),
-          CategoryTabs(
-            tabs: tabs,
-            onTabSelected: _onTabSelected,
-            onAddTab: _addNewTab,
-            onEditTab: _editCategory,
-          ),
-          Expanded(
-            child: FutureBuilder<List<String>>(//Fehler
-              future: Future.wait([
-                _getInitialContent(),
-                _getInitialDescription(),
-              ]),
-              builder: (context, snapshot) {
-                if (snapshot.connectionState == ConnectionState.waiting) {
-                  return const Center(
-                    child: CircularProgressIndicator(),
-                  );
-                } else {
-                  String initialContent = snapshot.data?[0] ?? '';
-                  String initialDescription = snapshot.data?[1] ?? '';
-                  return NoteSection(
-                    backgroundColor: _selectedTab.color,
-                    onContentChanged: _onContentChanged,
-                    initialContent: initialContent,
-                    initialDescription: initialDescription,
-                    onDescriptionChanged: _onDescriptionChanged,
-                    categoryName: _selectedTab.name,
-                    audioNotes: _audioNotes,
-                    onDeleteAudio: _deleteAudio,
-                    onAddAudio: _saveAudioRecording,
-                  );
-                }
-              },
+    return SafeArea(
+      child: Scaffold(
+        backgroundColor: Colors.black,
+        body: Column(
+          children: [
+            CalendarTimeline(
+              onDateSelected: _onDateSelected,
+              onOverviewEntrySelected: _onOverviewEntrySelected,
             ),
-          ),
-          /*
-          if (_selectedTab.questions.isNotEmpty)
-            Padding(
-              padding: const EdgeInsets.all(16.0),
-              child: ElevatedButton.icon(
-                onPressed: _manualTriggerQuestionsScreen,
-                icon: const Icon(Icons.question_answer),
-                label: const Text('Answer Questions'),
+            const SizedBox(height: 25),
+            CategoryTabs(
+              tabs: tabs,
+              onTabSelected: _onTabSelected,
+              onAddTab: _addNewTab,
+              onEditTab: _editCategory,
+              selectedIndex: _selectedIndex,
+            ),
+            Expanded(
+              child: FutureBuilder<List<String>>(
+                future: _initialContentFuture,
+                builder: (context, snapshot) {
+                  if (snapshot.connectionState == ConnectionState.waiting) {
+                    return const Center(
+                      child: CircularProgressIndicator(),
+                    );
+                  } else {
+                    String initialContent = snapshot.data?[0] ?? '';
+                    String initialDescription = snapshot.data?[1] ?? '';
+                    return NoteSection(
+                      key: _noteSectionKey,
+                      backgroundColor: _selectedTab.color,
+                      onContentChanged: _onContentChanged,
+                      initialContent: initialContent,
+                      initialDescription: initialDescription,
+                      onDescriptionChanged: _onDescriptionChanged,
+                      categoryName: _selectedTab.name,
+                      isRecording: _isRecording,
+                      onStartRecording: _startRecording,
+                      onStopRecording: _stopRecording,
+                      onRecordingStateChanged: (isRecording) {
+                        setState(() {
+                          _isRecordingInProgress = isRecording;
+                        });
+                      },
+                    );
+                  }
+                },
               ),
             ),
-
-           */
-        ],
-
-      ),
-
-      floatingActionButton: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          // Existing FAB for questions
-          FloatingActionButton(
-            onPressed: _handleFabPressed,
-            backgroundColor: _selectedTab.color,
-            child: const Icon(Icons.question_answer),
-          ),
-          const SizedBox(height: 10),
-          // New FAB for audio recording
-          FloatingActionButton(
-            onPressed: _startAudioRecording,
-            backgroundColor: _selectedTab.color,
-            child: const Icon(Icons.mic),
-          ),
-        ],
+          ],
+        ),
+        floatingActionButton: _isRecordingInProgress
+            ? null
+            : Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            SizedBox(
+              width: 50,
+              height: 55,
+              child: FloatingActionButton(
+                heroTag: 'questionFab',
+                onPressed: _handleFabPressed,
+                backgroundColor: _selectedTab.color,
+                child: const Icon(
+                  Icons.question_answer,
+                  size: 22,
+                ),
+              ),
+            ),
+            const SizedBox(height: 10),
+            // New FAB for audio recording
+            FloatingActionButton(
+              heroTag: 'audioFab',
+              onPressed: () {
+                _noteSectionKey.currentState?.onStartRecording();
+              },
+              backgroundColor: _selectedTab.color,
+              child: const Icon(Icons.mic),
+            ),
+          ],
+        ),
       ),
     );
   }

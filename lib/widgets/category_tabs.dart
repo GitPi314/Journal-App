@@ -6,6 +6,7 @@ class CategoryTabs extends StatefulWidget {
   final Function(CategoryTab) onTabSelected;
   final Function onAddTab;
   final Function(CategoryTab) onEditTab;
+  final int selectedIndex;
 
   const CategoryTabs({
     super.key,
@@ -13,6 +14,7 @@ class CategoryTabs extends StatefulWidget {
     required this.onTabSelected,
     required this.onAddTab,
     required this.onEditTab,
+    required this.selectedIndex,
   });
 
   @override
@@ -20,7 +22,6 @@ class CategoryTabs extends StatefulWidget {
 }
 
 class _CategoryTabsState extends State<CategoryTabs> {
-  int _selectedIndex = 0;
 
   @override
   Widget build(BuildContext context) {
@@ -51,12 +52,11 @@ class _CategoryTabsState extends State<CategoryTabs> {
               }
 
               CategoryTab tab = widget.tabs[index];
-              bool isSelected = _selectedIndex == index;
+              bool isSelected = widget.selectedIndex == index;
 
               return GestureDetector(
                 onTap: () {
                   setState(() {
-                    _selectedIndex = index;
                   });
                   widget.onTabSelected(tab);
                 },

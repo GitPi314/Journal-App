@@ -6,7 +6,6 @@ import 'package:flutter_quill/flutter_quill.dart' as quill;
 import 'dart:convert';
 import '../services/storage_service.dart';
 
-
 class OverviewPage extends StatefulWidget {
   final Function(String date, String category) onEntrySelected;
 
@@ -17,23 +16,22 @@ class OverviewPage extends StatefulWidget {
 }
 
 class _OverviewPageState extends State<OverviewPage> with SingleTickerProviderStateMixin {
-  final Box _journalBox = Hive.box('journal_entries');
   final DateFormat _dateFormat = DateFormat('dd.MM.yyyy');
   late TabController _tabController;
   Map<String, Map<String, String>> _entriesByCategory = {};
   final List<String> _categories = ['Journal', 'Gedanken', 'Ideen', 'Erkenntnisse', 'Gefühle'];
   Map<String, Set<String>> _markedDaysByCategory = {};
-  late Box _markedDaysBox;
   bool _showOnlyMarked = false;
   final StorageService _storageService = StorageService();
+  late Box _markedDaysBox;
 
   @override
   void initState() {
     super.initState();
-    _loadEntries();
     _tabController = TabController(length: _categories.length, vsync: this);
     _markedDaysBox = Hive.box('marked_days');
     _loadMarkedDays();
+    _loadEntries();
   }
 
   void _loadMarkedDays() {
@@ -73,13 +71,16 @@ class _OverviewPageState extends State<OverviewPage> with SingleTickerProviderSt
   void _loadEntries() {
     Map<String, Map<String, String>> entries = {};
 
-    for (var key in _journalBox.keys) {
-      String dateKey = key.toString();
-      List<String> parts = dateKey.split('_');
+    var journalBox = Hive.box('journal_entries');
+
+    for (var key in journalBox.keys) {
+      String keyString = key.toString();
+      List<String> parts = keyString.split('_');
       if (parts.length < 2) continue; // Skip invalid keys
       String date = parts[0];
       String category = parts[1];
-      String content = _journalBox.get(key);
+
+      String content = _storageService.getJournalEntry(keyString);
 
       if (!entries.containsKey(category)) {
         entries[category] = {};
@@ -102,22 +103,27 @@ class _OverviewPageState extends State<OverviewPage> with SingleTickerProviderSt
         appBar: AppBar(
           backgroundColor: Colors.black,
           iconTheme: const IconThemeData(color: Colors.white),
-          title: const Text('Overview', style: TextStyle(color: Colors.white),),
+          title: const Text(
+            'Übersicht',
+            style: TextStyle(color: Colors.white, fontSize: 24),
+          ),
+          titleSpacing: 75,
           bottom: TabBar(
             controller: _tabController,
             isScrollable: true,
-            indicator: const BoxDecoration(border: Border(bottom: BorderSide(color: Colors.greenAccent, width: 3))),
+            indicator: const BoxDecoration(
+                border: Border(bottom: BorderSide(color: Colors.greenAccent, width: 3))),
             indicatorColor: Colors.greenAccent,
             indicatorSize: TabBarIndicatorSize.tab,
-            labelColor: Colors.white,  // Color of the selected tab's text
-            unselectedLabelColor: Colors.grey,  // Color of the unselected tab's text
+            labelColor: Colors.white, // Color of the selected tab's text
+            unselectedLabelColor: Colors.grey, // Color of the unselected tab's text
             labelStyle: const TextStyle(
-              fontSize: 21,  // Font size for the selected tab
-              fontWeight: FontWeight.bold,  // Font weight for the selected tab
+              fontSize: 21, // Font size for the selected tab
+              fontWeight: FontWeight.bold, // Font weight for the selected tab
             ),
             unselectedLabelStyle: const TextStyle(
-              fontSize: 16,  // Font size for unselected tabs
-              fontWeight: FontWeight.normal,  // Font weight for unselected tabs
+              fontSize: 16, // Font size for unselected tabs
+              fontWeight: FontWeight.normal, // Font weight for unselected tabs
             ),
             tabs: _categories.map((category) {
               return Tab(
@@ -137,110 +143,72 @@ class _OverviewPageState extends State<OverviewPage> with SingleTickerProviderSt
   }
 
   Widget _buildCategoryTab(String category) {
-    if (category == 'Journal' || category == 'Gefühle') {
-      // Overview without displaying entries
-      return _buildOverviewTab(category);
-    } else {
-      // Display dates and entries
-      return _buildEntriesTab(category);
-    }
-  }
-
-  Widget _buildOverviewTab(String category) {
-    Map<String, String>? entries = _entriesByCategory[category];
-    List<String> sortedDates = entries != null ? entries.keys.toList() : [];
-    sortedDates.sort((a, b) => b.compareTo(a)); // Sort dates descending
-
     return Column(
       children: [
-        Padding(
-          padding: const EdgeInsets.all(8.0),
-          child: Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              const Text('Favoriten: ', style: TextStyle(fontSize: 16, color: Colors.grey),),
-
-              Switch(
-                activeColor: Colors.greenAccent,
-                activeTrackColor: Colors.green,
-                value: _showOnlyMarked,
-                onChanged: (value) {
-                  setState(() {
-                    _showOnlyMarked = value;
-                  });
-                },
-              ),
-            ],
+        if (category == 'Journal' || category == 'Gefühle')
+          Padding(
+            padding: const EdgeInsets.all(8.0),
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                const Text(
+                  'Favoriten: ',
+                  style: TextStyle(fontSize: 20, color: Colors.greenAccent),
+                ),
+                Switch(
+                  activeColor: Colors.greenAccent,
+                  activeTrackColor: Colors.green,
+                  value: _showOnlyMarked,
+                  onChanged: (value) {
+                    setState(() {
+                      _showOnlyMarked = value;
+                    });
+                  },
+                ),
+              ],
+            ),
           ),
-        ),
         Expanded(
-          child: ListView.builder(
-            itemCount: sortedDates.length,
-            itemBuilder: (context, index) {
-              String date = sortedDates[index];
-              if (_showOnlyMarked && !_isDayMarked(category, date)) {
-                return Container(); // Skip unmarked days when filter is on
-              }
-              bool hasEntry = entries![date] != null && entries[date]!.isNotEmpty;
-              bool isMarked = _isDayMarked(category, date);
-
-              String description = '';
-              if (category == 'Journal' || category == 'Gefühle') {
-                String key = '${date}_${category}';
-                description = _storageService.getDescription(key);
-              }
-
-              return ListTile(
-                title: Text(
-                  _dateFormat.format(DateTime.parse(date)),
-                  style: const TextStyle(fontWeight: FontWeight.bold, color: Colors.white),
-                ),
-                subtitle: description.isNotEmpty ? Text(description, style: const TextStyle(color: Colors.grey),) : null,
-                trailing: Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    IconButton(
-                      icon: Icon(
-                        isMarked ? Icons.bookmark : Icons.bookmark_border,
-                        color: isMarked ? Colors.blue : Colors.grey,
-                      ),
-                      onPressed: () {
-                        _toggleDayMarked(category, date);
-                      },
-                    ),
-                    hasEntry
-                        ? const Icon(Icons.circle, color: Colors.green, size: 12)
-                        : const Icon(Icons.circle_outlined, color: Colors.grey, size: 12),
-                  ],
-                ),
-                onTap: hasEntry
-                    ? () {
-                  // Navigate to note view for that date and category
-                  _navigateToNoteView(date, category);
-                }
-                    : null,
-              );
-            },
-          ),
+          child: _buildEntriesList(category),
         ),
       ],
     );
   }
 
-  Widget _buildEntriesTab(String category) {
+  Widget _buildEntriesList(String category) {
     Map<String, String>? entries = _entriesByCategory[category];
-    if (entries == null || entries.isEmpty) {
-      return const Center(child: Text('No entries', style: TextStyle(color: Colors.white),));
-    }
-
-    List<String> sortedDates = entries.keys.toList();
+    List<String> sortedDates = entries != null ? entries.keys.toList() : [];
     sortedDates.sort((a, b) => b.compareTo(a)); // Sort dates descending
+
+    if (entries == null || entries.isEmpty) {
+      return const Center(
+        child: Text(
+          'Keine Einträge',
+          style: TextStyle(color: Colors.white),
+        ),
+      );
+    }
 
     return ListView.builder(
       itemCount: sortedDates.length,
       itemBuilder: (context, index) {
-        String date = sortedDates[index];
-        String content = entries[date]!;
+        String dateString = sortedDates[index];
+        DateTime date = DateTime.parse(dateString);
+        String key = '${dateString}_$category';
+
+        String content = entries[dateString]!;
+
+        // Beschreibung für das Datum und die Kategorie abrufen
+        String description = '';
+        if (category == 'Journal' || category == 'Gefühle') {
+          description = _storageService.getDescription(key);
+        }
+
+        if (_showOnlyMarked && !_isDayMarked(category, dateString)) {
+          return Container(); // Überspringe unmarkierte Tage, wenn der Filter aktiv ist
+        }
+
+        bool isMarked = _isDayMarked(category, dateString);
 
         String plainText = '';
         try {
@@ -253,16 +221,33 @@ class _OverviewPageState extends State<OverviewPage> with SingleTickerProviderSt
 
         return ListTile(
           title: Text(
-            _dateFormat.format(DateTime.parse(date)),
+            _dateFormat.format(date),
             style: const TextStyle(fontWeight: FontWeight.bold, color: Colors.white),
           ),
-          subtitle: Text(
+          subtitle: category == 'Journal' || category == 'Gefühle'
+              ? (description.isNotEmpty
+              ? Text(
+            description,
+            style: const TextStyle(color: Colors.grey),
+          )
+              : null)
+              : Text(
             plainText.length > 100 ? '${plainText.substring(0, 100)}...' : plainText,
             style: const TextStyle(fontSize: 16, color: Colors.grey),
           ),
+          trailing: category == 'Journal' || category == 'Gefühle'
+              ? IconButton(
+            icon: Icon(
+              isMarked ? Icons.bookmark : Icons.bookmark_border,
+              color: isMarked ? Colors.blue : Colors.grey,
+            ),
+            onPressed: () {
+              _toggleDayMarked(category, dateString);
+            },
+          )
+              : null,
           onTap: () {
-            // Navigate to note view for that date and category
-            _navigateToNoteView(date, category);
+            _navigateToNoteView(dateString, category);
           },
         );
       },
@@ -271,6 +256,6 @@ class _OverviewPageState extends State<OverviewPage> with SingleTickerProviderSt
 
   void _navigateToNoteView(String date, String category) {
     widget.onEntrySelected(date, category);
-    Navigator.of(context).pop(); // Close the overview page
+    Navigator.of(context).pop(); // Schließt die Übersichtseite
   }
 }

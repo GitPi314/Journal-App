@@ -1,4 +1,4 @@
-import 'package:flutter/material.dart';
+import 'dart:ui';
 
 class CategoryTab {
   String name;
@@ -10,6 +10,6 @@ class CategoryTab {
     required this.name,
     required this.color,
     this.isSelected = false,
-    List<String>? questions, // Use `List<String>?` here
+    List<String>? questions,
   }) : questions = questions ?? [];
 }

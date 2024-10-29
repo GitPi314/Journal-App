@@ -8,7 +8,7 @@ import 'package:journal_app/models/audio_note.dart';
 class AudioRecorderScreen extends StatefulWidget {
   final Function(AudioNote) onSave;
 
-  const AudioRecorderScreen({Key? key, required this.onSave}) : super(key: key);
+  const AudioRecorderScreen({super.key, required this.onSave});
 
   @override
   _AudioRecorderScreenState createState() => _AudioRecorderScreenState();
@@ -19,7 +19,7 @@ class _AudioRecorderScreenState extends State<AudioRecorderScreen> {
   bool _isRecording = false;
   bool _isPaused = false;
   String _filePath = '';
-  TextEditingController _titleController = TextEditingController();
+  final TextEditingController _titleController = TextEditingController();
 
   @override
   void initState() {
