@@ -21,6 +21,7 @@ class CategorySettingsScreen extends StatefulWidget {
 
 class _CategorySettingsScreenState extends State<CategorySettingsScreen> {
   final List<TextEditingController> _controllers = [];
+  final List<FocusNode> _focusNodes = [];
   late Box questionsBox;
 
 
@@ -36,11 +37,14 @@ class _CategorySettingsScreenState extends State<CategorySettingsScreen> {
   void _loadSavedQuestions() {
     List<String>? savedQuestions = questionsBox.get(widget.categoryTab.name);
     if (savedQuestions != null && savedQuestions.isNotEmpty) {
-      // Populate the controllers with saved questions
-      _controllers.addAll(savedQuestions.map((question) => TextEditingController(text: question)));
+      for (var question in savedQuestions) {
+        _controllers.add(TextEditingController(text: question));
+        _focusNodes.add(FocusNode());
+      }
     } else {
-      // If no saved questions, add an empty TextEditingController
+      // If no saved questions, add an empty TextEditingController and FocusNode
       _controllers.add(TextEditingController());
+      _focusNodes.add(FocusNode());
     }
   }
 
@@ -49,18 +53,28 @@ class _CategorySettingsScreenState extends State<CategorySettingsScreen> {
     for (var controller in _controllers) {
       controller.dispose();
     }
+    for (var focusNode in _focusNodes) {
+      focusNode.dispose();
+    }
     super.dispose();
   }
 
   void _addQuestion() {
     setState(() {
       _controllers.add(TextEditingController());
+      _focusNodes.add(FocusNode());
+    });
+
+    // Set the focus to the new text field
+    Future.delayed(Duration.zero, () {
+      FocusScope.of(context).requestFocus(_focusNodes.last);
     });
   }
 
   void _removeQuestion(int index) {
     setState(() {
       _controllers.removeAt(index);
+      _focusNodes.removeAt(index).dispose();
     });
   }
 
@@ -115,6 +129,7 @@ class _CategorySettingsScreenState extends State<CategorySettingsScreen> {
               maxLines: null,
               cursorColor: Colors.white,
               controller: _controllers[index],
+              focusNode: _focusNodes[index],
               decoration: InputDecoration(
                 border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
                 focusedBorder: OutlineInputBorder(borderSide: const BorderSide(color: Colors.white, width: 2), borderRadius: BorderRadius.circular(10)),

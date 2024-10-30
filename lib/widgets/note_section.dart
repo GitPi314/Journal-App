@@ -51,6 +51,7 @@ class NoteSectionState extends State<NoteSection> {
 
   bool _isRecording = false;
   bool _isPaused = false;
+  bool _isDescriptionExpanded = false;
   Duration _recordingDuration = Duration.zero;
   Timer? _timer;
   late String _filePath;
@@ -296,6 +297,7 @@ class NoteSectionState extends State<NoteSection> {
                 showStrikeThrough: false,
                 showSubscript: false,
                 showSuperscript: false,
+                showClearFormat: true, //durchgestrichenes T
                 color: Colors.grey[700],
                 buttonOptions: const quill.QuillSimpleToolbarButtonOptions(
                     undoHistory: quill.QuillToolbarHistoryButtonOptions(
@@ -304,13 +306,22 @@ class NoteSectionState extends State<NoteSection> {
                                 color: Colors.white,
                                 highlightColor: Colors.grey),
                             iconButtonUnselectedData:
-                            quill.IconButtonData(color: Colors.grey)
+                            quill.IconButtonData(color: Colors.white, disabledColor: Colors.grey)
+                        )
+                    ),
+                    redoHistory: quill.QuillToolbarHistoryButtonOptions(
+                        iconTheme: quill.QuillIconTheme(
+                            iconButtonSelectedData: quill.IconButtonData(
+                              color: Colors.white,
+                              highlightColor: Colors.grey, ),
+                            iconButtonUnselectedData:
+                            quill.IconButtonData(color: Colors.white, highlightColor: Colors.grey, disabledColor: Colors.grey)
                         )
                     ),
                     bold: quill.QuillToolbarToggleStyleButtonOptions(
                         iconTheme: quill.QuillIconTheme(
                             iconButtonSelectedData:
-                            quill.IconButtonData(color: Colors.white, highlightColor: Colors.grey, splashColor: Colors.grey),
+                            quill.IconButtonData(color: Colors.white, highlightColor: Colors.grey),
                             iconButtonUnselectedData: quill.IconButtonData(
                               color: Colors.grey,
                             )
@@ -334,16 +345,8 @@ class NoteSectionState extends State<NoteSection> {
                             )
                         )
                     ),
-                    redoHistory: quill.QuillToolbarHistoryButtonOptions(
-                        iconTheme: quill.QuillIconTheme(
-                            iconButtonSelectedData: quill.IconButtonData(
-                                color: Colors.white,
-                                highlightColor: Colors.grey),
-                            iconButtonUnselectedData:
-                            quill.IconButtonData(color: Colors.grey, highlightColor: Colors.grey)
-                        )
-                    ),
-                    fontSize: quill.QuillToolbarFontSizeButtonOptions(defaultItemColor: Colors.grey, style: TextStyle(color: Colors.grey)),
+
+                    fontSize: quill.QuillToolbarFontSizeButtonOptions(defaultItemColor: Colors.grey, style: TextStyle(color: Colors.grey), ),
                     strikeThrough: quill.QuillToolbarToggleStyleButtonOptions(
                         iconTheme: quill.QuillIconTheme(
                             iconButtonSelectedData:
@@ -352,22 +355,93 @@ class NoteSectionState extends State<NoteSection> {
                               color: Colors.grey,
                             )
                         )
-                    )
-                )
+                    ),
+                  color: quill.QuillToolbarColorButtonOptions(iconTheme: quill.QuillIconTheme(iconButtonSelectedData: quill.IconButtonData(color: Colors.white, highlightColor: Colors.grey, splashColor: Colors.grey),
+                      iconButtonUnselectedData: quill.IconButtonData(
+                        color: Colors.grey,
+                      ))),
+                  listBullets: quill.QuillToolbarToggleStyleButtonOptions(iconTheme: quill.QuillIconTheme(
+                      iconButtonSelectedData:
+                      quill.IconButtonData(color: Colors.white, highlightColor: Colors.grey, splashColor: Colors.grey),
+                      iconButtonUnselectedData: quill.IconButtonData(
+                        color: Colors.grey,
+                      )
+                  )),
+                  listNumbers: quill.QuillToolbarToggleStyleButtonOptions(iconTheme: quill.QuillIconTheme(
+                      iconButtonSelectedData:
+                      quill.IconButtonData(color: Colors.white, highlightColor: Colors.grey, splashColor: Colors.grey),
+                      iconButtonUnselectedData: quill.IconButtonData(
+                        color: Colors.grey,
+                      )
+                  )),
+                  search: quill.QuillToolbarSearchButtonOptions(iconTheme: quill.QuillIconTheme(
+                      iconButtonSelectedData: quill.IconButtonData(
+                          color: Colors.white,
+                          highlightColor: Colors.grey),
+                      iconButtonUnselectedData:
+                      quill.IconButtonData(color: Colors.grey, highlightColor: Colors.grey)
+                  )),
+                  backgroundColor: quill.QuillToolbarColorButtonOptions(iconTheme: quill.QuillIconTheme(iconButtonSelectedData: quill.IconButtonData(color: Colors.white, highlightColor: Colors.grey, splashColor: Colors.grey),
+                      iconButtonUnselectedData: quill.IconButtonData(
+                        color: Colors.grey,
+                      ))),
+                  clearFormat: quill.QuillToolbarClearFormatButtonOptions(iconTheme: quill.QuillIconTheme(
+                      iconButtonSelectedData:
+                      quill.IconButtonData(color: Colors.white, highlightColor: Colors.grey, splashColor: Colors.grey),
+                      iconButtonUnselectedData: quill.IconButtonData(
+                        color: Colors.grey,
+                      )
+                  ) ),
+                  toggleCheckList: quill.QuillToolbarToggleCheckListButtonOptions(iconTheme: quill.QuillIconTheme(
+                      iconButtonSelectedData:
+                      quill.IconButtonData(color: Colors.white, highlightColor: Colors.grey, splashColor: Colors.grey),
+                      iconButtonUnselectedData: quill.IconButtonData(
+                        color: Colors.grey,
+                      )
+                  ))
+
+                ),
+
             ),
           ),
           if (widget.categoryName == 'Journal' || widget.categoryName == 'Gefühle')
             Padding(
-              padding: const EdgeInsets.all(8.0),
-              child: TextField(
-                cursorColor: Colors.black,
-                controller: _descriptionController,
-                decoration: const InputDecoration(
-                  labelText: 'Short Description',
-                  focusColor: Colors.blue,
-                  labelStyle: TextStyle(color: Colors.grey),
-                  focusedBorder: UnderlineInputBorder(borderSide: BorderSide(color: Colors.grey, width: 3)),
-                ),
+              padding: const EdgeInsets.symmetric(horizontal: 8.0),
+              child: Row(
+                children: [
+                  Expanded(
+                    child: AnimatedCrossFade(
+                      duration: const Duration(milliseconds: 200),
+                      firstChild: Container(), // Eingeklappter Zustand
+                      secondChild: TextField(
+                        cursorColor: Colors.black,
+                        controller: _descriptionController,
+                        decoration: const InputDecoration(
+                          labelText: 'Short Description',
+                          focusColor: Colors.blue,
+                          labelStyle: TextStyle(color: Colors.grey),
+                          focusedBorder: UnderlineInputBorder(
+                            borderSide: BorderSide(color: Colors.grey, width: 3),
+                          ),
+                        ),
+                      ),
+                      crossFadeState: _isDescriptionExpanded
+                          ? CrossFadeState.showSecond
+                          : CrossFadeState.showFirst,
+                    ),
+                  ),
+                  IconButton(
+                    icon: Icon(
+                      _isDescriptionExpanded ? Icons.expand_less : Icons.expand_more,
+                      color: Colors.grey,
+                    ),
+                    onPressed: () {
+                      setState(() {
+                        _isDescriptionExpanded = !_isDescriptionExpanded;
+                      });
+                    },
+                  ),
+                ],
               ),
             ),
           //quill.QuillToolbar.basic(controller: _controller),
