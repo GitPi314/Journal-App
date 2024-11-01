@@ -469,81 +469,85 @@ class NoteSectionState extends State<NoteSection> {
     );
   }
 
+
   Widget _buildRecordingBox() {
     return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 8), // Fügt seitlichen Abstand hinzu
+      padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 8),
       child: Container(
-          padding: const EdgeInsets.all(12.0),
-          decoration: BoxDecoration(
-            color: Colors.grey[700], // Hellerer Hintergrund
-            borderRadius: BorderRadius.circular(12.0),
-            boxShadow: [
-              BoxShadow(
-                color: Colors.grey.withOpacity(0.3),
-                spreadRadius: 2,
-                blurRadius: 5,
-                offset: const Offset(0, 3), // Schatten nach unten
+        padding: const EdgeInsets.all(12.0),
+        decoration: BoxDecoration(
+          color: Colors.grey[700],
+          borderRadius: BorderRadius.circular(12.0),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.grey.withOpacity(0.3),
+              spreadRadius: 2,
+              blurRadius: 5,
+              offset: const Offset(0, 3),
+            ),
+          ],
+        ),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Text(
+              _formatDuration(_recordingDuration),
+              style: const TextStyle(
+                fontSize: 18,
+                fontWeight: FontWeight.bold,
+                color: Colors.white,
               ),
-            ],
-          ),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              // Anzeige der Aufnahmezeit
-              Text(
-                _formatDuration(_recordingDuration),
-                style: const TextStyle(
-                  fontSize: 18,
-                  fontWeight: FontWeight.bold,
-                  color: Colors.white,
-                ),
-              ),
-              const SizedBox(height: 10),
+            ),
+            const SizedBox(height: 10),
 
-              // Waveform und Play/Pause Button nebeneinander
-              Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Flexible(
-                    fit: FlexFit.tight,
-                    child: AudioWaveforms(
-                      recorderController: _recorderController,
-                      waveStyle: const WaveStyle(
-                        waveColor: Colors.blue,
-                        showMiddleLine: true,
-                        waveCap: StrokeCap.round,
+            // Verwendung von LayoutBuilder für stabile Größenanpassung
+            LayoutBuilder(
+              builder: (context, constraints) {
+                return Row(
+                  children: [
+                    Expanded(
+                      child: SizedBox(
+                        height: 50.0,
+                        child: AudioWaveforms(
+                          recorderController: _recorderController,
+                          waveStyle: const WaveStyle(
+                            waveColor: Colors.blue,
+                            showMiddleLine: true,
+                            waveCap: StrokeCap.round,
+                          ),
+                          size: Size(constraints.maxWidth - 50, 50.0), // passt die Breite der Waveform an
+                        ),
                       ),
-                      size: const Size(double.infinity, 50.0),
                     ),
-                  ),
-                  SizedBox(
-                    width: 40,
-                    child: IconButton(
-                      icon: Icon(_isPaused ? Icons.play_arrow : Icons.square),
-                      iconSize: _isPaused ? 40 : 28,
-                      padding: EdgeInsets.zero, // Entfernt zusätzliches Padding
-                      onPressed: _pauseOrResumeRecording,
-                      color: _isPaused ? Colors.black : Colors.red,
+                    const SizedBox(width: 10),
+                    SizedBox(
+                      width: 40,
+                      height: 40,
+                      child: IconButton(
+                        icon: Icon(_isPaused ? Icons.play_arrow : Icons.stop),
+                        iconSize: _isPaused ? 40 : 28,
+                        padding: EdgeInsets.zero,
+                        onPressed: _pauseOrResumeRecording,
+                        color: _isPaused ? Colors.black : Colors.red,
+                      ),
                     ),
-                  ),
-                ],
-              ),
-
-              const SizedBox(height: 10),
-
-              // Bestätigen-Icon darunter
-              IconButton(
-                icon: const Icon(Icons.check),
-                iconSize: 40,
-                onPressed: _stopAndSaveRecording,
-                color: Colors.green,
-              ),
-            ],
-          )
-
+                  ],
+                );
+              },
+            ),
+            const SizedBox(height: 10),
+            IconButton(
+              icon: const Icon(Icons.check),
+              iconSize: 40,
+              onPressed: _stopAndSaveRecording,
+              color: Colors.green,
+            ),
+          ],
+        ),
       ),
     );
   }
+
 
 
   String _formatDuration(Duration duration) {
@@ -566,11 +570,6 @@ class AudioBlockEmbed extends quill.CustomBlockEmbed {
 
   Map<String, dynamic> get audioData => jsonDecode(data);
 }
-
-
-
-
-
 
 
 
@@ -642,6 +641,8 @@ class _AudioPlayerWidgetState extends State<AudioPlayerWidget> {
       path: widget.filePath,
       shouldExtractWaveform: true,
     );
+
+
   }
 
   void _togglePlayPause() async {

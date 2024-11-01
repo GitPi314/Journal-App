@@ -1,8 +1,12 @@
+import 'dart:io';
+
 import 'package:flutter/material.dart';
 import 'package:hive_flutter/hive_flutter.dart';
 import 'dart:convert';
 import 'package:flutter_quill/flutter_quill.dart' as quill;
 import 'package:dart_quill_delta/dart_quill_delta.dart';
+import 'package:path_provider/path_provider.dart';
+import 'package:workmanager/workmanager.dart';
 
 import 'models/category_tab.dart';
 import 'widgets/calendar_timeline.dart';
@@ -12,6 +16,7 @@ import 'services/storage_service.dart';
 import 'screens/category_settings_screen.dart';
 import 'services/selection_tracker_service.dart';
 import 'screens/questions_screen.dart';
+import 'screens/splash_screen.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -22,7 +27,35 @@ void main() async {
   await Hive.openBox('marked_days');
   await Hive.openBox('descriptions');
   await Hive.openBox('audio_notes');
+  await Hive.openBox('settings');
+
+
+  Workmanager().initialize(
+    callbackDispatcher,
+    isInDebugMode: false, // Setze auf true für Debug-Ausgaben
+  );
+
   runApp(const MyApp());
+}
+
+void callbackDispatcher() {
+  Workmanager().executeTask((task, inputData) async {
+    if (task == "automaticBackup") {
+      try {
+        // Zugriff auf StorageService innerhalb des Hintergrund-Tasks
+        final storageService = StorageService();
+        Directory appDocDir = await getApplicationDocumentsDirectory();
+        String backupPath = '${appDocDir.path}/automatic_backup_${DateTime.now().millisecondsSinceEpoch}.json';
+        await storageService.exportData(backupPath);
+        print('Automatisches Backup erfolgreich: $backupPath');
+        return Future.value(true);
+      } catch (e) {
+        print('Fehler beim automatischen Backup: $e');
+        return Future.value(false);
+      }
+    }
+    return Future.value(false);
+  });
 }
 
 class MyApp extends StatelessWidget {
@@ -36,7 +69,12 @@ class MyApp extends StatelessWidget {
       theme: ThemeData(
         primarySwatch: Colors.blue,
       ),
-      home: const JournalApp(),
+      initialRoute: '/',
+      routes: {
+        '/': (context) => const SplashScreen(),
+        //'/': (context) => const JournalApp(),
+        '/home': (context) => const JournalApp(), // Dein Hauptbildschirm
+      },
     );
   }
 }
@@ -289,58 +327,89 @@ class _JournalAppState extends State<JournalApp> {
     }
   }
 
+
+
+
   @override
   Widget build(BuildContext context) {
     return SafeArea(
       child: Scaffold(
         backgroundColor: Colors.black,
-        body: Column(
-          children: [
-            CalendarTimeline(
-              onDateSelected: _onDateSelected,
-              onOverviewEntrySelected: _onOverviewEntrySelected,
-            ),
-            const SizedBox(height: 25),
-            CategoryTabs(
-              tabs: tabs,
-              onTabSelected: _onTabSelected,
-              onAddTab: _addNewTab,
-              onEditTab: _editCategory,
-              selectedIndex: _selectedIndex,
-            ),
-            Expanded(
-              child: FutureBuilder<List<String>>(
-                future: _initialContentFuture,
-                builder: (context, snapshot) {
-                  if (snapshot.connectionState == ConnectionState.waiting) {
-                    return const Center(
-                      child: CircularProgressIndicator(),
+        body: NestedScrollView(
+          headerSliverBuilder: (context, innerBoxIsScrolled) {
+            return [
+              SliverAppBar(
+                pinned: true,
+                expandedHeight: 200.0,
+                backgroundColor: Colors.black, // Standardfarbe beim Scrollen
+                flexibleSpace: LayoutBuilder(
+                  builder: (context, constraints) {
+                    // Dynamische Kontrolle basierend auf der Höhe der AppBar
+                    final triggerHeight = 150.0; // Schwellenhöhe für Farb- und Titeländerung
+                    final shouldShowTitle = constraints.biggest.height < triggerHeight;
+
+                    return FlexibleSpaceBar(
+                      title: shouldShowTitle
+                          ? Text(
+                        _selectedTab.name,
+                        style: const TextStyle(color: Colors.white),
+                      )
+                          : null,
+                      background: Container(
+                        color: shouldShowTitle ? _selectedTab.color : Colors.black,
+                        child: Column(
+                          children: [
+                            CalendarTimeline(
+                              onDateSelected: _onDateSelected,
+                              onOverviewEntrySelected: _onOverviewEntrySelected,
+                            ),
+                            const SizedBox(height: 25),
+                            CategoryTabs(
+                              tabs: tabs,
+                              onTabSelected: _onTabSelected,
+                              onAddTab: _addNewTab,
+                              onEditTab: _editCategory,
+                              selectedIndex: _selectedIndex,
+                            ),
+                          ],
+                        ),
+                      ),
                     );
-                  } else {
-                    String initialContent = snapshot.data?[0] ?? '';
-                    String initialDescription = snapshot.data?[1] ?? '';
-                    return NoteSection(
-                      key: _noteSectionKey,
-                      backgroundColor: _selectedTab.color,
-                      onContentChanged: _onContentChanged,
-                      initialContent: initialContent,
-                      initialDescription: initialDescription,
-                      onDescriptionChanged: _onDescriptionChanged,
-                      categoryName: _selectedTab.name,
-                      isRecording: _isRecording,
-                      onStartRecording: _startRecording,
-                      onStopRecording: _stopRecording,
-                      onRecordingStateChanged: (isRecording) {
-                        setState(() {
-                          _isRecordingInProgress = isRecording;
-                        });
-                      },
-                    );
-                  }
-                },
+                  },
+                ),
               ),
-            ),
-          ],
+            ];
+          },
+          body: FutureBuilder<List<String>>(
+            future: _initialContentFuture,
+            builder: (context, snapshot) {
+              if (snapshot.connectionState == ConnectionState.waiting) {
+                return const Center(
+                  child: CircularProgressIndicator(),
+                );
+              } else {
+                String initialContent = snapshot.data?[0] ?? '';
+                String initialDescription = snapshot.data?[1] ?? '';
+                return NoteSection(
+                  key: _noteSectionKey,
+                  backgroundColor: _selectedTab.color,
+                  onContentChanged: _onContentChanged,
+                  initialContent: initialContent,
+                  initialDescription: initialDescription,
+                  onDescriptionChanged: _onDescriptionChanged,
+                  categoryName: _selectedTab.name,
+                  isRecording: _isRecording,
+                  onStartRecording: _startRecording,
+                  onStopRecording: _stopRecording,
+                  onRecordingStateChanged: (isRecording) {
+                    setState(() {
+                      _isRecordingInProgress = isRecording;
+                    });
+                  },
+                );
+              }
+            },
+          ),
         ),
         floatingActionButton: _isRecordingInProgress
             ? null
@@ -361,7 +430,6 @@ class _JournalAppState extends State<JournalApp> {
               ),
             ),
             const SizedBox(height: 10),
-            // New FAB for audio recording
             FloatingActionButton(
               heroTag: 'audioFab',
               onPressed: () {
@@ -375,6 +443,9 @@ class _JournalAppState extends State<JournalApp> {
       ),
     );
   }
+
+
+
 }
 
 class AddTabDialog extends StatefulWidget {

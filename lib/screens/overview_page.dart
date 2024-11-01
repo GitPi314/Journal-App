@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:hive/hive.dart';
 import 'package:intl/intl.dart';
 import 'package:flutter_quill/flutter_quill.dart' as quill;
+import 'package:journal_app/screens/settings_screen.dart';
 import 'dart:convert';
 import '../services/storage_service.dart';
 
@@ -107,7 +108,20 @@ class _OverviewPageState extends State<OverviewPage> with SingleTickerProviderSt
             'Übersicht',
             style: TextStyle(color: Colors.white, fontSize: 24),
           ),
-          titleSpacing: 75,
+          actions: [
+            IconButton(
+              icon: const Icon(Icons.settings),
+              onPressed: () {
+                Navigator.of(context).push(
+                  MaterialPageRoute(
+                    builder: (context) => const SettingsScreen(),
+                  ),
+                );
+              },
+              tooltip: 'Einstellungen',
+            ),
+          ],
+          titleSpacing: MediaQuery.of(context).size.width -285,
           bottom: TabBar(
             controller: _tabController,
             isScrollable: true,
@@ -193,7 +207,13 @@ class _OverviewPageState extends State<OverviewPage> with SingleTickerProviderSt
       itemCount: sortedDates.length,
       itemBuilder: (context, index) {
         String dateString = sortedDates[index];
-        DateTime date = DateTime.parse(dateString);
+        DateTime date;
+        try {
+          date = DateTime.parse(dateString);
+        } catch (e) {
+          print('Ungültiges Datum: $dateString');
+          return Container(); // Überspringe ungültige Daten
+        }
         String key = '${dateString}_$category';
 
         String content = entries[dateString]!;
@@ -204,6 +224,7 @@ class _OverviewPageState extends State<OverviewPage> with SingleTickerProviderSt
           description = _storageService.getDescription(key);
         }
 
+        // Filterung nach markierten Tagen
         if (_showOnlyMarked && !_isDayMarked(category, dateString)) {
           return Container(); // Überspringe unmarkierte Tage, wenn der Filter aktiv ist
         }
@@ -211,12 +232,27 @@ class _OverviewPageState extends State<OverviewPage> with SingleTickerProviderSt
         bool isMarked = _isDayMarked(category, dateString);
 
         String plainText = '';
+        List<String> audioTitles = [];
+
         try {
           quill.Document doc = quill.Document.fromJson(jsonDecode(content));
           plainText = doc.toPlainText().trim();
+
+          // Extrahiere Audio-Titel
+          for (var op in doc.toDelta().toList()) {
+            if (op.isInsert && op.value is Map && (op.value as Map).containsKey('audio')) {
+              String dataString = op.value['audio'];
+              print('Audio Embed gefunden: $dataString');
+              Map<String, dynamic> dataMap = jsonDecode(dataString);
+              String title = dataMap['name'] ?? 'Audio';
+              audioTitles.add(title);
+              print('Gefundener Audio-Titel: $title');
+            }
+          }
         } catch (e) {
           // Falls ein Fehler auftritt, verwenden wir den Originalinhalt
           plainText = content;
+          print('Fehler beim Parsen des Quill-Dokuments: $e');
         }
 
         return ListTile(
@@ -225,12 +261,37 @@ class _OverviewPageState extends State<OverviewPage> with SingleTickerProviderSt
             style: const TextStyle(fontWeight: FontWeight.bold, color: Colors.white),
           ),
           subtitle: category == 'Journal' || category == 'Gefühle'
-              ? (description.isNotEmpty
-              ? Text(
-            description,
-            style: const TextStyle(color: Colors.grey),
+              ? Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              if (description.isNotEmpty)
+                Text(
+                  description,
+                  style: const TextStyle(color: Colors.grey),
+                ),
+              if (audioTitles.isNotEmpty)
+                Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: audioTitles.map((title) {
+                    return Padding(
+                      padding: const EdgeInsets.only(top: 4.0),
+                      child: Row(
+                        children: [
+                          const Icon(Icons.audiotrack, color: Colors.grey, size: 16),
+                          const SizedBox(width: 4),
+                          Expanded(
+                            child: Text(
+                              title,
+                              style: const TextStyle(color: Colors.white),
+                            ),
+                          ),
+                        ],
+                      ),
+                    );
+                  }).toList(),
+                ),
+            ],
           )
-              : null)
               : Text(
             plainText.length > 100 ? '${plainText.substring(0, 100)}...' : plainText,
             style: const TextStyle(fontSize: 16, color: Colors.grey),
